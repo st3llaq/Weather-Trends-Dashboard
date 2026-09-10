@@ -1,9 +1,7 @@
 """Weather Trends Dashboard — is it getting hotter?
 
-Fetches decades of daily historical temperature data (Open-Meteo archive, ERA5
-reanalysis, no API key required), aggregates to yearly and seasonal averages,
-and fits a linear trend to answer: is the long-term average rising, falling,
-or flat?
+Fetches decades of daily historical temperature data (Open-Meteo archive), aggregates to yearly and seasonal averages,
+and fits a linear trend to determine if the long-term average temperature is rising, falling, or constant?
 """
 
 from datetime import date
@@ -21,13 +19,13 @@ st.set_page_config(page_title="Weather Trends Dashboard", page_icon="🌡️", l
 
 SEASON_COLORS = {"Winter": "#3d5a80", "Spring": "#588157", "Summer": "#e07a5f", "Fall": "#bc6c25"}
 
-
+#cache results of city search to avoid multiple api calls, cache expires after 1 day
 @st.cache_data(ttl="1d", show_spinner=False)
 def fetch_history(latitude: float, longitude: float, start_year: int, end_year: int):
     raw = get_historical_daily(latitude, longitude, start_year, end_year)
     return historical_to_dataframe(raw)
 
-
+#cache benchmark trends, no ttl, 
 @st.cache_data(show_spinner=False)
 def load_benchmark_trends(years_back: int) -> pd.DataFrame:
     """Load precomputed global benchmark trends (see build_benchmark.py) for a given window size."""
@@ -49,13 +47,17 @@ def label_for(row) -> str:
 with st.sidebar:
     st.header("Search")
     with st.form("search_form"):
-        city_query = st.text_input("City name", value="London")
+        city_query = st.text_input("City name", value="Seattle")
         years_back = st.slider("Years of history", min_value=10, max_value=40, value=30, step=5)
         search_clicked = st.form_submit_button("Search", type="primary")
 
+#st.sessions_state persists data across user's browsing session since the script reruns with each interaction, variables not shared between runs
+#a new session created every browser tab that connects to st server
+#initialize locations to none
 if "locations" not in st.session_state:
     st.session_state.locations = None
 
+#save city dataframe to session_state.locations
 if search_clicked and city_query.strip():
     with st.spinner("Looking up city..."):
         st.session_state.locations = geocode_city(city_query.strip())
@@ -70,7 +72,8 @@ if locations.empty:
     st.error(f"No matches found for '{city_query}'. Try a different spelling.")
     st.stop()
 
-locations = locations.reset_index(drop=True)
+#replace index with default 0, 1, 2 sequence in case the index was messed up by filtering data
+#locations = locations.reset_index(drop=True) 
 labels = [label_for(r) for _, r in locations.iterrows()]
 with st.sidebar:
     choice_idx = st.selectbox("Matching locations", options=range(len(labels)), format_func=lambda i: labels[i])
