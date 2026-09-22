@@ -1,0 +1,20 @@
+name: Keep Streamlit app awake
+
+# Streamlit Community Cloud puts free-tier apps to sleep after a period of no
+# visitors. This just pings the live app on a schedule so it never sits idle
+# long enough to fall asleep.
+
+on:
+  schedule:
+    - cron: "0 12 */3 * *" # every 3 days at 12:00 UTC
+  workflow_dispatch: {} # allows manually triggering a run from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the app
+        # -L follows the redirect Streamlit's front door issues, and -c/-b persist
+        # a cookie across that redirect — without it, the request loops back on
+        # itself instead of ever reaching the actual app.
+        run: curl -sSf --max-time 30 -L -c /tmp/cookies.txt -b /tmp/cookies.txt -o /dev/null https://weathertrendsdashboard.streamlit.app/
